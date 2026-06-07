@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Editor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="logo">PhotoEdit</div>
+            <div class="file-actions">
+                <button id="btn-open" class="btn btn-secondary">Open Image</button>
+                <button id="btn-open-video" class="btn btn-secondary">Open Video</button>
+                <button id="btn-export" class="btn btn-primary">Export</button>
+            </div>
+            <input type="file" id="file-input" accept="image/*" hidden>
+            <input type="file" id="video-input" accept="video/*" hidden>
+        </header>
+
+        <div class="main-layout">
+            <!-- Left Toolbar -->
+            <aside class="toolbar">
+                <button class="tool-btn active" data-tool="adjust" title="Adjustments">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="filters" title="Filters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="curves" title="Curves">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20 Q12 4 21 20"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="crop" title="Crop">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v4H2m4 0h12v12m0 4v4h4M18 18H6V6"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="ai" title="AI Tools">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="local" title="Local Edit (paint mask)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-6 6v3h3l6-6m4-4l-3-3-3 3 3 3 3-3zM14 6l3 3"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="color" title="Color Correction">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/><path d="M12 3a9 9 0 010 18" fill="currentColor" opacity="0.3"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="lens" title="Lens &amp; Perspective">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M3 12c2-4 6-6 9-6s7 2 9 6"/><path d="M3 12c2 4 6 6 9 6s7-2 9-6"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="layers" title="Layers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="batch" title="Batch Process">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="draw" title="Draw">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="video" title="Video Editor">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                </button>
+            </aside>
+
+            <!-- Canvas Area -->
+            <main class="canvas-area" id="canvas-area">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-content">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        <p>Drag & drop an image here</p>
+                        <p class="sub">or click "Open Image"</p>
+                    </div>
+                </div>
+                <canvas id="main-canvas" style="display:none"></canvas>
+                <div id="crop-overlay" class="crop-overlay" style="display:none">
+                    <div class="crop-box" id="crop-box">
+                        <div class="crop-handle tl"></div>
+                        <div class="crop-handle tr"></div>
+                        <div class="crop-handle bl"></div>
+                        <div class="crop-handle br"></div>
+                    </div>
+                </div>
+                <div class="zoom-controls">
+                    <button id="btn-zoom-in" class="btn-icon" title="Zoom In">+</button>
+                    <span id="zoom-level">100%</span>
+                    <button id="btn-zoom-out" class="btn-icon" title="Zoom Out">−</button>
+                    <button id="btn-zoom-fit" class="btn-icon" title="Fit">⊡</button>
+                </div>
+
+                <!-- Video Timeline -->
+                <div id="video-timeline" class="video-timeline" style="display:none">
+                    <div class="timeline-row">
+                        <div class="time-display">
+                            <span id="video-time-current">0:00.00</span>
+                            <span class="time-sep">/</span>
+                            <span id="video-time-total">0:00.00</span>
+                        </div>
+                        <div class="timeline-controls">
+                            <button id="btn-video-skip-back" class="btn-icon" title="Skip -5s">⏪</button>
+                            <button id="btn-video-play" class="btn-icon" title="Play/Pause">▶</button>
+                            <button id="btn-video-skip-fwd" class="btn-icon" title="Skip +5s">⏩</button>
+                            <button id="btn-video-stop" class="btn-icon" title="Stop">⏹</button>
+                        </div>
+                        <div class="volume-control">
+                            <span>🔊</span>
+                            <input type="range" id="video-volume" min="0" max="100" value="100">
+                        </div>
+                    </div>
+                    <div class="timeline-track" id="video-track">
+                        <div class="timeline-progress" id="video-progress"></div>
+                        <div class="timeline-trim-in" id="video-trim-in" title="In point"></div>
+                        <div class="timeline-trim-out" id="video-trim-out" title="Out point"></div>
+                        <div class="timeline-playhead" id="video-playhead"></div>
+                    </div>
+                    <div class="timeline-times">
+                        <span>In: <b id="video-in-label">0:00.00</b></span>
+                        <span>Out: <b id="video-out-label">0:00.00</b></span>
+                        <span>Length: <b id="video-length-label">0:00.00</b></span>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel -->
+            <aside class="panel" id="right-panel">
+                <!-- Adjustments Panel -->
+                <div class="panel-section" id="panel-adjust">
+                    <h3>Adjustments</h3>
+                    <div class="slider-group">
+                        <label>Brightness <span id="val-brightness">0</span></label>
+                        <input type="range" id="adj-brightness" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Contrast <span id="val-contrast">0</span></label>
+                        <input type="range" id="adj-contrast" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Saturation <span id="val-saturation">0</span></label>
+                        <input type="range" id="adj-saturation" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Exposure <span id="val-exposure">0</span></label>
+                        <input type="range" id="adj-exposure" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Highlights <span id="val-highlights">0</span></label>
+                        <input type="range" id="adj-highlights" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Shadows <span id="val-shadows">0</span></label>
+                        <input type="range" id="adj-shadows" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Temperature <span id="val-temperature">0</span></label>
+                        <input type="range" id="adj-temperature" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Vibrance <span id="val-vibrance">0</span></label>
+                        <input type="range" id="adj-vibrance" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Sharpness <span id="val-sharpness">0</span></label>
+                        <input type="range" id="adj-sharpness" min="0" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Vignette <span id="val-vignette">0</span></label>
+                        <input type="range" id="adj-vignette" min="0" max="100" value="0">
+                    </div>
+                    <button class="btn btn-secondary btn-full" id="btn-reset-adj">Reset All</button>
+                </div>
+
+                <!-- Filters Panel -->
+                <div class="panel-section" id="panel-filters" style="display:none">
+                    <h3>Filters</h3>
+                    <div class="filter-grid">
+                        <button class="filter-btn active" data-filter="none">Original</button>
+                        <button class="filter-btn" data-filter="grayscale">Grayscale</button>
+                        <button class="filter-btn" data-filter="sepia">Sepia</button>
+                        <button class="filter-btn" data-filter="vintage">Vintage</button>
+                        <button class="filter-btn" data-filter="dramatic">Dramatic</button>
+                        <button class="filter-btn" data-filter="cool">Cool Tone</button>
+                        <button class="filter-btn" data-filter="warm">Warm Tone</button>
+                        <button class="filter-btn" data-filter="fade">Fade</button>
+                        <button class="filter-btn" data-filter="highContrast">High Contrast</button>
+                        <button class="filter-btn" data-filter="invert">Invert</button>
+                        <button class="filter-btn" data-filter="posterize">Posterize</button>
+                        <button class="filter-btn" data-filter="emboss">Emboss</button>
+                    </div>
+                    <div class="slider-group" style="margin-top:12px">
+                        <label>Filter Intensity <span id="val-filter-intensity">100</span>%</label>
+                        <input type="range" id="filter-intensity" min="0" max="100" value="100">
+                    </div>
+                </div>
+
+                <!-- Curves Panel -->
+                <div class="panel-section" id="panel-curves" style="display:none">
+                    <h3>Curves</h3>
+                    <div class="curves-channel-select">
+                        <button class="channel-btn active" data-channel="rgb">RGB</button>
+                        <button class="channel-btn" data-channel="red" style="color:#ff6b6b">R</button>
+                        <button class="channel-btn" data-channel="green" style="color:#51cf66">G</button>
+                        <button class="channel-btn" data-channel="blue" style="color:#339af0">B</button>
+                    </div>
+                    <canvas id="curves-canvas" width="240" height="240"></canvas>
+                    <button class="btn btn-secondary btn-full" id="btn-reset-curves">Reset Curves</button>
+                </div>
+
+                <!-- Crop Panel -->
+                <div class="panel-section" id="panel-crop" style="display:none">
+                    <h3>Crop</h3>
+                    <div class="crop-presets">
+                        <button class="crop-preset-btn" data-ratio="free">Free</button>
+                        <button class="crop-preset-btn" data-ratio="1:1">1:1</button>
+                        <button class="crop-preset-btn" data-ratio="4:3">4:3</button>
+                        <button class="crop-preset-btn" data-ratio="16:9">16:9</button>
+                        <button class="crop-preset-btn" data-ratio="3:2">3:2</button>
+                        <button class="crop-preset-btn" data-ratio="9:16">9:16</button>
+                    </div>
+                    <div class="crop-actions">
+                        <button class="btn btn-primary" id="btn-apply-crop">Apply Crop</button>
+                        <button class="btn btn-secondary" id="btn-cancel-crop">Cancel</button>
+                    </div>
+                    <h3 style="margin-top:20px">Rotate &amp; Flip</h3>
+                    <div class="rotate-grid">
+                        <button class="crop-preset-btn" id="btn-rotate-left" title="Rotate 90° counter-clockwise">↺ Left</button>
+                        <button class="crop-preset-btn" id="btn-rotate-right" title="Rotate 90° clockwise">↻ Right</button>
+                        <button class="crop-preset-btn" id="btn-flip-h" title="Flip horizontal">⇋ Flip H</button>
+                        <button class="crop-preset-btn" id="btn-flip-v" title="Flip vertical">⇅ Flip V</button>
+                    </div>
+                    <div class="slider-group" style="margin-top:12px">
+                        <label>Fine Rotate <span id="val-rotate-angle">0</span>°</label>
+                        <input type="range" id="rotate-angle" min="-180" max="180" value="0" step="1">
+                    </div>
+                    <div class="crop-actions">
+                        <button class="btn btn-primary btn-full" id="btn-apply-rotate">Apply Rotation</button>
+                    </div>
+                </div>
+
+                <!-- AI Panel -->
+                <div class="panel-section" id="panel-ai" style="display:none">
+                    <h3>AI Tools</h3>
+                    <p class="ai-info">AI-powered image processing</p>
+                    <div class="ai-tools">
+                        <button class="btn btn-ai btn-full" id="btn-ai-remove-bg">
+                            <span class="ai-icon">✨</span> Remove Background
+                        </button>
+                        <button class="btn btn-ai btn-full" id="btn-ai-upscale-2x">
+                            <span class="ai-icon">🔍</span> Upscale 2x
+                        </button>
+                        <button class="btn btn-ai btn-full" id="btn-ai-enhance">
+                            <span class="ai-icon">⚡</span> AI Enhance
+                        </button>
+                        <button class="btn btn-ai btn-full" id="btn-ai-denoise">
+                            <span class="ai-icon">🔇</span> AI Denoise
+                        </button>
+                    </div>
+                    <h3 style="margin-top:20px">Custom Model</h3>
+                    <p class="ai-info">Upload your own ONNX model (image-to-image)</p>
+                    <div class="ai-tools">
+                        <input type="file" id="custom-model-input" accept=".onnx,.bin,.pt,.pth" hidden>
+                        <button class="btn btn-secondary btn-full" id="btn-load-model">
+                            <span class="ai-icon">📁</span> Load Model File
+                        </button>
+                        <div id="custom-model-info" class="custom-model-info" style="display:none">
+                            <span id="custom-model-name">No model loaded</span>
+                            <button class="btn-icon" id="btn-clear-model" title="Remove model">✕</button>
+                        </div>
+                        <div class="slider-group" id="custom-mode-group" style="display:none">
+                            <label>Mode</label>
+                            <select id="custom-mode-select" class="mode-select">
+                                <option value="overlay">Overlay (blend)</option>
+                                <option value="replace">Replace image</option>
+                                <option value="mask">Apply as alpha mask</option>
+                                <option value="multiply">Multiply blend</option>
+                                <option value="screen">Screen blend</option>
+                            </select>
+                        </div>
+                        <div class="slider-group" id="custom-intensity-group" style="display:none">
+                            <label>Intensity <span id="val-custom-intensity">100</span>%</label>
+                            <input type="range" id="custom-intensity" min="0" max="100" value="100">
+                        </div>
+                        <button class="btn btn-ai btn-full" id="btn-apply-custom" style="display:none" disabled>
+                            <span class="ai-icon">🎨</span> Apply Custom Model
+                        </button>
+                    </div>
+
+                    <h3 style="margin-top:20px">Stable Diffusion</h3>
+                    <p class="ai-info">Load a SD model from HuggingFace. Requires WebGPU (Chrome/Edge 113+).</p>
+                    <div class="ai-tools">
+                        <input type="text" id="sd-model-id" class="model-input" placeholder="HuggingFace model ID (e.g. Xenova/sd-turbo)">
+                        <button class="btn btn-ai btn-full" id="btn-load-sd">
+                            <span class="ai-icon">🌌</span> Load SD Model
+                        </button>
+                        <div id="sd-info" class="custom-model-info" style="display:none">
+                            <span id="sd-model-name">No model loaded</span>
+                            <button class="btn-icon" id="btn-unload-sd" title="Unload model">✕</button>
+                        </div>
+
+                        <div id="sd-controls" style="display:none">
+                            <div class="slider-group" style="margin-top:10px">
+                                <label>Mode</label>
+                                <select id="sd-mode-select" class="mode-select">
+                                    <option value="img2img">Image-to-Image (use current image)</option>
+                                    <option value="txt2img">Text-to-Image (generate new)</option>
+                                </select>
+                            </div>
+                            <div class="slider-group">
+                                <label>Prompt</label>
+                                <textarea id="sd-prompt" class="prompt-input" rows="2" placeholder="Describe what you want..."></textarea>
+                            </div>
+                            <div class="slider-group">
+                                <label>Negative Prompt</label>
+                                <textarea id="sd-negative-prompt" class="prompt-input" rows="2" placeholder="What to avoid..."></textarea>
+                            </div>
+                            <div class="slider-group">
+                                <label>Strength (img2img) <span id="val-sd-strength">75</span>%</label>
+                                <input type="range" id="sd-strength" min="0" max="100" value="75">
+                            </div>
+                            <div class="slider-group">
+                                <label>Steps <span id="val-sd-steps">4</span></label>
+                                <input type="range" id="sd-steps" min="1" max="50" value="4">
+                            </div>
+                            <div class="slider-group">
+                                <label>Guidance Scale <span id="val-sd-guidance">0</span></label>
+                                <input type="range" id="sd-guidance" min="0" max="20" value="0" step="0.5">
+                            </div>
+                            <div class="slider-group">
+                                <label>Seed <span id="val-sd-seed">Random</span></label>
+                                <input type="number" id="sd-seed" placeholder="Random" min="0">
+                            </div>
+                            <button class="btn btn-ai btn-full" id="btn-generate-sd">
+                                <span class="ai-icon">✨</span> Generate
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="ai-status" class="ai-status" style="display:none">
+                        <div class="ai-progress-bar"><div class="ai-progress-fill" id="ai-progress"></div></div>
+                        <span id="ai-status-text">Loading model...</span>
+                    </div>
+                </div>
+
+                <!-- Local Edit Panel -->
+                <div class="panel-section" id="panel-local" style="display:none">
+                    <h3>Local Edit</h3>
+                    <p class="ai-info">Paint a mask. AI tools & enhancements will only apply to the masked area.</p>
+                    <div class="slider-group">
+                        <label>Brush Size <span id="val-brush-size">40</span>px</label>
+                        <input type="range" id="brush-size" min="2" max="200" value="40">
+                    </div>
+                    <div class="slider-group">
+                        <label>Hardness <span id="val-brush-hardness">50</span>%</label>
+                        <input type="range" id="brush-hardness" min="0" max="100" value="50">
+                    </div>
+                    <div class="filter-grid" style="grid-template-columns:1fr 1fr;margin-top:8px">
+                        <button class="filter-btn active" data-brush-mode="paint">Paint</button>
+                        <button class="filter-btn" data-brush-mode="erase">Erase</button>
+                    </div>
+                    <div class="crop-actions" style="margin-top:12px">
+                        <button class="btn btn-secondary btn-full" id="btn-clear-mask">Clear Mask</button>
+                    </div>
+                    <div class="crop-actions">
+                        <button class="btn btn-primary btn-full" id="btn-apply-local">Apply to Masked Area</button>
+                    </div>
+                    <p class="ai-info" style="margin-top:8px">Or just use any AI tool above - it will respect the mask automatically.</p>
+                </div>
+
+                <!-- Color Correction Panel -->
+                <div class="panel-section" id="panel-color" style="display:none">
+                    <h3>Color Correction</h3>
+
+                    <h4 style="margin-top:8px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">White Balance</h4>
+                    <div class="slider-group">
+                        <label>Tint <span id="val-tint">0</span></label>
+                        <input type="range" id="adj-tint" min="-100" max="100" value="0">
+                    </div>
+
+                    <h4 style="margin-top:16px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Color Balance</h4>
+                    <div class="color-balance-group">
+                        <div class="color-balance-row">
+                            <span class="cb-label">Shadows</span>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-cyan">C/R <span id="val-cb-shadows-cr">0</span></label>
+                                <input type="range" id="cb-shadows-cr" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-magenta">M/G <span id="val-cb-shadows-mg">0</span></label>
+                                <input type="range" id="cb-shadows-mg" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-yellow">Y/B <span id="val-cb-shadows-yb">0</span></label>
+                                <input type="range" id="cb-shadows-yb" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+                        <div class="color-balance-row">
+                            <span class="cb-label">Midtones</span>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-cyan">C/R <span id="val-cb-midtones-cr">0</span></label>
+                                <input type="range" id="cb-midtones-cr" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-magenta">M/G <span id="val-cb-midtones-mg">0</span></label>
+                                <input type="range" id="cb-midtones-mg" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-yellow">Y/B <span id="val-cb-midtones-yb">0</span></label>
+                                <input type="range" id="cb-midtones-yb" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+                        <div class="color-balance-row">
+                            <span class="cb-label">Highlights</span>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-cyan">C/R <span id="val-cb-highlights-cr">0</span></label>
+                                <input type="range" id="cb-highlights-cr" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-magenta">M/G <span id="val-cb-highlights-mg">0</span></label>
+                                <input type="range" id="cb-highlights-mg" min="-100" max="100" value="0">
+                            </div>
+                            <div class="slider-group compact">
+                                <label class="cb-axis cb-yellow">Y/B <span id="val-cb-highlights-yb">0</span></label>
+                                <input type="range" id="cb-highlights-yb" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top:16px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">HSL Adjustments</h4>
+                    <div class="hsl-grid" id="hsl-grid"></div>
+
+                    <button class="btn btn-secondary btn-full" id="btn-reset-color" style="margin-top:12px">Reset Color</button>
+                </div>
+
+                <!-- Lens & Perspective Panel -->
+                <div class="panel-section" id="panel-lens" style="display:none">
+                    <h3>Lens Correction</h3>
+                    <p class="ai-info">Fix lens distortion and perspective keystoning.</p>
+
+                    <h4 style="margin-top:8px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Distortion</h4>
+                    <div class="slider-group">
+                        <label>Barrel/Pincushion <span id="val-lens-distortion">0</span></label>
+                        <input type="range" id="lens-distortion" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Edge Distortion <span id="val-lens-distortion2">0</span></label>
+                        <input type="range" id="lens-distortion2" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Chromatic Aberration <span id="val-lens-ca">0</span></label>
+                        <input type="range" id="lens-ca" min="0" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Vignette <span id="val-lens-vignette">0</span></label>
+                        <input type="range" id="lens-vignette" min="-100" max="100" value="0">
+                    </div>
+
+                    <h4 style="margin-top:16px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Perspective</h4>
+                    <div class="slider-group">
+                        <label>Horizontal Keystone <span id="val-persp-h">0</span></label>
+                        <input type="range" id="persp-h" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Vertical Keystone <span id="val-persp-v">0</span></label>
+                        <input type="range" id="persp-v" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Rotation <span id="val-lens-rotation">0</span>°</label>
+                        <input type="range" id="lens-rotation" min="-45" max="45" value="0" step="0.5">
+                    </div>
+                    <div class="slider-group">
+                        <label>Scale <span id="val-lens-scale">100</span>%</label>
+                        <input type="range" id="lens-scale" min="50" max="200" value="100">
+                    </div>
+
+                    <h4 style="margin-top:16px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Presets</h4>
+                    <div class="filter-grid" style="grid-template-columns:1fr 1fr;gap:6px">
+                        <button class="filter-btn" data-lens-preset="wideangle">Wide Angle</button>
+                        <button class="filter-btn" data-lens-preset="fisheye">Fisheye Fix</button>
+                        <button class="filter-btn" data-lens-preset="portrait">Portrait</button>
+                        <button class="filter-btn" data-lens-preset="building">Building</button>
+                    </div>
+
+                    <div class="crop-actions" style="margin-top:12px">
+                        <button class="btn btn-primary btn-full" id="btn-apply-lens">Apply to New Image</button>
+                    </div>
+                    <button class="btn btn-secondary btn-full" id="btn-reset-lens" style="margin-top:8px">Reset Lens</button>
+                </div>
+
+                <!-- Layers Panel -->
+                <div class="panel-section" id="panel-layers" style="display:none">
+                    <h3>Layers</h3>
+                    <div class="layer-list" id="layer-list"></div>
+                    <div class="layer-actions">
+                        <button class="btn-icon" id="btn-layer-add" title="New layer">+</button>
+                        <button class="btn-icon" id="btn-layer-duplicate" title="Duplicate">⎘</button>
+                        <button class="btn-icon" id="btn-layer-delete" title="Delete">🗑</button>
+                        <button class="btn-icon" id="btn-layer-up" title="Move up">↑</button>
+                        <button class="btn-icon" id="btn-layer-down" title="Move down">↓</button>
+                        <button class="btn-icon" id="btn-layer-merge" title="Merge down">⇩</button>
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Active Layer</h4>
+                    <div class="slider-group">
+                        <label>Opacity <span id="val-layer-opacity">100</span>%</label>
+                        <input type="range" id="layer-opacity" min="0" max="100" value="100">
+                    </div>
+                    <div class="slider-group">
+                        <label>Blend Mode</label>
+                        <select id="layer-blend" class="mode-select">
+                            <option value="normal">Normal</option>
+                            <option value="multiply">Multiply</option>
+                            <option value="screen">Screen</option>
+                            <option value="overlay">Overlay</option>
+                            <option value="soft-light">Soft Light</option>
+                            <option value="hard-light">Hard Light</option>
+                            <option value="color-dodge">Color Dodge</option>
+                            <option value="color-burn">Color Burn</option>
+                            <option value="darken">Darken</option>
+                            <option value="lighten">Lighten</option>
+                            <option value="difference">Difference</option>
+                            <option value="exclusion">Exclusion</option>
+                            <option value="hue">Hue</option>
+                            <option value="saturation">Saturation</option>
+                            <option value="color">Color</option>
+                            <option value="luminosity">Luminosity</option>
+                        </select>
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Add from</h4>
+                    <div class="crop-actions">
+                        <input type="file" id="layer-file-input" accept="image/*" hidden>
+                        <button class="btn btn-secondary btn-full" id="btn-layer-from-file">Image File</button>
+                        <button class="btn btn-secondary btn-full" id="btn-layer-from-canvas" style="margin-top:6px">Duplicate Current</button>
+                    </div>
+
+                    <div class="crop-actions" style="margin-top:12px">
+                        <button class="btn btn-secondary btn-full" id="btn-flatten">Flatten Image</button>
+                    </div>
+                </div>
+
+                <!-- Batch Process Panel -->
+                <div class="panel-section" id="panel-batch" style="display:none">
+                    <h3>Batch Process</h3>
+                    <p class="ai-info">Apply current edits to multiple images at once.</p>
+
+                    <input type="file" id="batch-file-input" accept="image/*" multiple hidden>
+                    <div class="crop-actions">
+                        <button class="btn btn-secondary btn-full" id="btn-batch-select">
+                            <span class="ai-icon">📁</span> Select Images
+                        </button>
+                        <button class="btn btn-secondary btn-full" id="btn-batch-select-folder" style="margin-top:6px">
+                            <span class="ai-icon">📂</span> Select Folder
+                        </button>
+                        <input type="file" id="batch-folder-input" accept="image/*" hidden webkitdirectory>
+                    </div>
+
+                    <div class="batch-list-wrapper">
+                        <div class="batch-list-header" id="batch-list-header" style="display:none">
+                            <span>0 files</span>
+                            <button class="btn-icon" id="btn-batch-clear" title="Clear list">✕</button>
+                        </div>
+                        <div class="batch-list" id="batch-list"></div>
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Preset</h4>
+                    <p class="ai-info" style="font-size:11px">Current edits become the batch preset. Use "Capture" to update.</p>
+                    <div class="crop-actions">
+                        <button class="btn btn-secondary btn-full" id="btn-batch-capture">
+                            <span class="ai-icon">📸</span> Capture Current Edits
+                        </button>
+                        <div class="batch-preset-info" id="batch-preset-info">No preset captured</div>
+                        <div class="slider-group" style="margin-top:8px">
+                            <label>Output Format</label>
+                            <select id="batch-format" class="mode-select">
+                                <option value="png">PNG (lossless)</option>
+                                <option value="jpeg">JPEG (smaller)</option>
+                                <option value="webp">WebP (modern)</option>
+                            </select>
+                        </div>
+                        <div class="slider-group" id="batch-quality-group">
+                            <label>JPEG/WebP Quality <span id="val-batch-quality">92</span>%</label>
+                            <input type="range" id="batch-quality" min="1" max="100" value="92">
+                        </div>
+                    </div>
+
+                    <div class="crop-actions" style="margin-top:12px">
+                        <button class="btn btn-ai btn-full" id="btn-batch-process" disabled>
+                            <span class="ai-icon">⚡</span> Process All Images
+                        </button>
+                    </div>
+
+                    <div id="batch-progress" class="ai-status" style="display:none">
+                        <div class="ai-progress-bar"><div class="ai-progress-fill" id="batch-progress-fill"></div></div>
+                        <span id="batch-progress-text">Ready</span>
+                    </div>
+
+                    <div class="crop-actions" id="batch-download-row" style="display:none;margin-top:12px">
+                        <button class="btn btn-primary btn-full" id="btn-batch-download-zip">
+                            <span class="ai-icon">💾</span> Download ZIP
+                        </button>
+                        <button class="btn btn-secondary btn-full" id="btn-batch-download-all" style="margin-top:6px">
+                            Download Individually
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Draw Panel -->
+                <div class="panel-section" id="panel-draw" style="display:none">
+                    <h3>Draw</h3>
+                    <p class="ai-info">Paint on a new layer. Switch tools with the buttons below.</p>
+
+                    <div class="draw-tool-grid">
+                        <button class="draw-tool-btn active" data-draw-tool="brush" title="Brush">✏</button>
+                        <button class="draw-tool-btn" data-draw-tool="eraser" title="Eraser">⌫</button>
+                        <button class="draw-tool-btn" data-draw-tool="line" title="Line">／</button>
+                        <button class="draw-tool-btn" data-draw-tool="rect" title="Rectangle">▭</button>
+                        <button class="draw-tool-btn" data-draw-tool="ellipse" title="Ellipse">○</button>
+                        <button class="draw-tool-btn" data-draw-tool="fill" title="Fill">🪣</button>
+                        <button class="draw-tool-btn" data-draw-tool="eyedropper" title="Color picker">⌖</button>
+                    </div>
+
+                    <h4 style="margin-top:12px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Color</h4>
+                    <div class="color-row">
+                        <input type="color" id="draw-color" value="#e94560" class="color-input">
+                        <input type="text" id="draw-color-hex" value="#e94560" maxlength="7" class="color-hex-input">
+                    </div>
+                    <div class="palette-row" id="draw-palette"></div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Brush</h4>
+                    <div class="slider-group">
+                        <label>Size <span id="val-draw-size">8</span>px</label>
+                        <input type="range" id="draw-size" min="1" max="200" value="8">
+                    </div>
+                    <div class="slider-group">
+                        <label>Opacity <span id="val-draw-opacity">100</span>%</label>
+                        <input type="range" id="draw-opacity" min="1" max="100" value="100">
+                    </div>
+                    <div class="slider-group">
+                        <label>Hardness <span id="val-draw-hardness">100</span>%</label>
+                        <input type="range" id="draw-hardness" min="0" max="100" value="100">
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Shape Style</h4>
+                    <div class="slider-group">
+                        <label>Stroke Width <span id="val-draw-stroke">2</span>px</label>
+                        <input type="range" id="draw-stroke" min="0" max="50" value="2">
+                    </div>
+                    <div class="crop-presets" style="grid-template-columns:1fr 1fr">
+                        <button class="crop-preset-btn active" data-shape-mode="fill">Filled</button>
+                        <button class="crop-preset-btn" data-shape-mode="stroke">Outline</button>
+                    </div>
+
+                    <div class="crop-actions" style="margin-top:12px">
+                        <button class="btn btn-secondary btn-full" id="btn-draw-newlayer">New Drawing Layer</button>
+                        <button class="btn btn-primary btn-full" id="btn-draw-commit" style="margin-top:6px">Commit to Layer</button>
+                    </div>
+                </div>
+
+                <!-- Video Panel -->
+                <div class="panel-section" id="panel-video" style="display:none">
+                    <h3>Video Editor</h3>
+                    <p class="ai-info">Load a video to trim, apply color/filter adjustments per-frame, and export.</p>
+
+                    <div class="slider-group">
+                        <label>FPS (export) <span id="val-video-fps">30</span></label>
+                        <input type="range" id="video-fps" min="10" max="60" value="30">
+                    </div>
+                    <div class="slider-group">
+                        <label>Playback Speed <span id="val-video-speed">1.0</span>×</label>
+                        <input type="range" id="video-speed" min="25" max="300" value="100">
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Trim</h4>
+                    <div class="crop-actions" style="grid-template-columns:1fr 1fr;display:grid;gap:6px">
+                        <button class="btn btn-secondary" id="btn-video-set-in">Set In @ Playhead</button>
+                        <button class="btn btn-secondary" id="btn-video-set-out">Set Out @ Playhead</button>
+                    </div>
+                    <div class="crop-actions" style="margin-top:6px">
+                        <button class="btn btn-secondary btn-full" id="btn-video-reset-trim">Reset Trim</button>
+                    </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Apply Adjustments</h4>
+                    <label class="check-row">
+                        <input type="checkbox" id="video-apply-color" checked>
+                        <span>Apply current color &amp; adjustments</span>
+                    </label>
+                    <label class="check-row">
+                        <input type="checkbox" id="video-apply-filter" checked>
+                        <span>Apply active filter</span>
+                    </label>
+                    <label class="check-row">
+                        <input type="checkbox" id="video-apply-curves" checked>
+                        <span>Apply curves</span>
+                    </label>
+                    <label class="check-row">
+                        <input type="checkbox" id="video-apply-lens" checked>
+                        <span>Apply lens correction</span>
+                    </label>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Export</h4>
+                    <div class="slider-group">
+                        <label>Bitrate <span id="val-video-bitrate">5</span> Mbps</label>
+                        <input type="range" id="video-bitrate" min="1" max="20" value="5">
+                    </div>
+                    <div class="crop-presets" style="grid-template-columns:1fr 1fr">
+                        <button class="crop-preset-btn active" data-video-format="video/webm">WebM</button>
+                        <button class="crop-preset-btn" data-video-format="video/mp4">MP4*</button>
+                    </div>
+                    <p class="ai-info" style="font-size:11px">*MP4 only works in browsers that support it (Safari, recent Chrome). WebM is universal.</p>
+                    <div class="crop-actions" style="margin-top:8px">
+                        <button class="btn btn-primary btn-full" id="btn-video-export">Export Video</button>
+                        <button class="btn btn-secondary btn-full" id="btn-video-extract-frames" style="margin-top:6px">Extract Frame as Image</button>
+                    </div>
+                    <div id="video-export-progress" class="video-export-progress" style="display:none">
+                        <div class="video-export-bar"><div class="video-export-fill" id="video-export-fill"></div></div>
+                        <div class="video-export-text" id="video-export-text">Preparing…</div>
+                    </div>
+
+                    <h4 style="margin-top:18px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Frame-by-Frame (Advanced)</h4>
+                    <div class="ai-warning" id="video-fbf-warning">
+                        <b>For short videos only.</b> Each frame is rendered individually, so the browser must hold every rendered frame in RAM at once.
+                        <ul style="margin:6px 0 4px 18px;padding:0">
+                            <li>Best for clips <b>under 6 seconds</b></li>
+                            <li>1080p ≈ 8 MB/frame × 30 fps = <b>~240 MB/sec</b> of RAM</li>
+                            <li>Audio is <b>not</b> included (no real-time sync)</li>
+                            <li>Much slower than real-time export</li>
+                        </ul>
+                        Why use it? Lets you apply expensive per-frame operations (e.g. AI upscale, denoise) to every frame before re-encoding.
+                    </div>
+
+                    <div class="slider-group">
+                        <label>Estimated memory: <b id="video-fbf-mem">—</b></label>
+                    </div>
+
+                    <label class="check-row">
+                        <input type="checkbox" id="video-fbf-enable">
+                        <span>Enable frame-by-frame mode</span>
+                    </label>
+
+                    <div class="crop-actions" style="margin-top:8px">
+                        <button class="btn btn-secondary btn-full" id="btn-video-fbf-process" disabled>Process All Frames</button>
+                        <button class="btn btn-primary btn-full" id="btn-video-fbf-export-zip" style="margin-top:6px" disabled>Export Frames as ZIP (PNG)</button>
+                        <button class="btn btn-primary btn-full" id="btn-video-fbf-export-video" style="margin-top:6px" disabled>Export Frames as Video</button>
+                    </div>
+
+                    <h4 style="margin-top:18px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Audio</h4>
+                    <p class="ai-info" style="font-size:11px;margin:0 0 6px">All processing happens via Web Audio. The real-time export uses the processed audio. Frame-by-frame export does not include audio.</p>
+
+                    <label class="check-row">
+                        <input type="checkbox" id="video-audio-mute">
+                        <span>Mute original audio</span>
+                    </label>
+
+                    <div class="slider-group">
+                        <label>Volume <span id="val-video-audio-volume">100</span>%</label>
+                        <input type="range" id="video-audio-volume" min="0" max="200" value="100">
+                    </div>
+
+                    <h5 style="margin:8px 0 4px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Fades</h5>
+                    <div class="slider-group">
+                        <label>Fade In <span id="val-video-fade-in">0</span>s</label>
+                        <input type="range" id="video-fade-in" min="0" max="10" step="0.1" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Fade Out <span id="val-video-fade-out">0</span>s</label>
+                        <input type="range" id="video-fade-out" min="0" max="10" step="0.1" value="0">
+                    </div>
+
+                    <h5 style="margin:8px 0 4px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Equalizer</h5>
+                    <div class="slider-group">
+                        <label>Bass <span id="val-video-eq-bass">0</span> dB</label>
+                        <input type="range" id="video-eq-bass" min="-20" max="20" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Mid <span id="val-video-eq-mid">0</span> dB</label>
+                        <input type="range" id="video-eq-mid" min="-20" max="20" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <label>Treble <span id="val-video-eq-treble">0</span> dB</label>
+                        <input type="range" id="video-eq-treble" min="-20" max="20" value="0">
+                    </div>
+
+                    <h5 style="margin:8px 0 4px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Background Music</h5>
+                    <div class="crop-actions" style="grid-template-columns:1fr 1fr;display:grid;gap:6px">
+                        <button class="btn btn-secondary" id="btn-video-load-music">Load Music…</button>
+                        <button class="btn btn-secondary" id="btn-video-clear-music" disabled>Clear</button>
+                    </div>
+                    <input type="file" id="video-music-input" accept="audio/*" hidden>
+                    <div id="video-music-name" class="ai-info" style="font-size:11px;margin:6px 0 0">No music loaded</div>
+                    <div class="slider-group" style="margin-top:8px">
+                        <label>Music Volume <span id="val-video-music-volume">70</span>%</label>
+                        <input type="range" id="video-music-volume" min="0" max="200" value="70">
+                    </div>
+                    <label class="check-row">
+                        <input type="checkbox" id="video-music-loop">
+                        <span>Loop music to fill video</span>
+                    </label>
+
+                    <div class="crop-actions" style="margin-top:8px">
+                        <button class="btn btn-secondary btn-full" id="btn-video-extract-audio">Extract Original Audio</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- History Bar -->
+        <footer class="history-bar">
+            <button id="btn-undo" class="btn-icon" title="Undo" disabled>↩</button>
+            <button id="btn-redo" class="btn-icon" title="Redo" disabled>↪</button>
+            <span class="history-count" id="history-count"></span>
+        </footer>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
