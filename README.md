@@ -1,3 +1,6 @@
+<img width="1840" height="854" alt="Snímek obrazovky 2026-06-06 190349" src="https://github.com/user-attachments/assets/0ca62dfe-055d-4add-b389-3feb02bd881b" />
+<img width="1858" height="817" alt="Snímek obrazovky 2026-06-06 190416" src="https://github.com/user-attachments/assets/33ebbe7b-e229-41dc-8244-de48fb778785" />
+<img width="1828" height="877" alt="Snímek obrazovky 2026-06-06 190406" src="https://github.com/user-attachments/assets/b40379c6-da7d-43c7-97a5-089156ee3c36" />
 # Local Lens
 
 A browser-based photo editor with AI tools, professional color correction, lens correction, layers, drawing, and batch processing. Runs entirely client-side — your photos never leave your machine.
