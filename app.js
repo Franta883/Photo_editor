@@ -1,23 +1,3 @@
-C:\photo-editor
-Fix 2: Batch download race condition
-
-Fix 3: updateVideoUI reassignment — let me check current state:
-
-Fix 3 is already wrapped in try/catch — and since the file is loaded as <script type="module">, function declarations create mutable bindings, so it works fine. No change needed.
-
-Fix 4: rotateImageFine() mask destruction
-
-Fix 5: TDZ — move maskCanvas/maskCtx declarations to top of file
-
-All 5 fixed:
-
-applyCrop() variable shadowing — renamed inner vars to cropSx/cropSy/cropSw/cropSh (lines 1279–1284)
-downloadBatchIndividual() race condition — wrapped revokeObjectURL in setTimeout(..., 1000)
-updateVideoUI reassignment — already wrapped in try/catch; works fine in module mode (function declarations are mutable in ESM)
-rotateImageFine() mask destruction — changed fillRect(#000) → clearRect() so the mask stays transparent
-loadImage() TDZ — moved let maskCanvas/maskCtx to line 60 (top of file, with the other globals)
-Re-zip and publish.
-
 const state = {
     originalImage: null,
     currentImage: null,
@@ -1629,7 +1609,26 @@ let customModel = {
     session: null,
     fileName: null,
     inputName: null,
-    outputName: null
+    outputName: null,
+    category: 'enhance'
+};
+
+const modelCategoryDefaults = {
+    enhance: { mode: 'overlay', intensity: 100, hint: 'Overlay blend works well for most enhancement models (denoise, sharpen, color-grade). Try "Replace" for upscale models.' },
+    inpaint: { mode: 'replace', intensity: 100, hint: 'Inpainting models replace pixel data directly. Use "Replace" for clean fills, or "Overlay" to blend with the original.' },
+    segment: { mode: 'mask', intensity: 100, hint: 'Segmentation models output a mask. "Apply as alpha mask" is the default — use it to create selections for further editing.' },
+    style: { mode: 'overlay', intensity: 80, hint: 'Style transfer works best with Overlay or Screen blend. Lower intensity to keep some of the original detail.' },
+    superres: { mode: 'replace', intensity: 100, hint: 'Super-resolution models replace the image at higher quality. Use "Replace" for full output, or lower intensity to blend.' },
+    other: { mode: 'overlay', intensity: 100, hint: 'No auto-configuration. Pick the blend mode and intensity that work best for your model.' }
+};
+
+const modelCategoryLabels = {
+    enhance: 'Enhance',
+    inpaint: 'Inpaint',
+    segment: 'Segment',
+    style: 'Style',
+    superres: 'Super-Res',
+    other: 'Other'
 };
 
 async function loadCustomModelFile(file) {
@@ -1662,10 +1661,25 @@ async function loadCustomModelFile(file) {
 
         document.getElementById('custom-model-name').textContent = file.name;
         document.getElementById('custom-model-info').style.display = 'flex';
+
+        const cat = customModel.category;
+        const badge = document.getElementById('custom-model-badge');
+        badge.textContent = modelCategoryLabels[cat] || cat;
+        badge.className = 'model-cat-badge';
+
+        const defaults = modelCategoryDefaults[cat] || modelCategoryDefaults.other;
+        document.getElementById('custom-mode-select').value = defaults.mode;
+        document.getElementById('custom-intensity').value = defaults.intensity;
+        document.getElementById('val-custom-intensity').textContent = defaults.intensity;
+
         document.getElementById('custom-mode-group').style.display = 'block';
         document.getElementById('custom-intensity-group').style.display = 'block';
         document.getElementById('btn-apply-custom').style.display = 'block';
         document.getElementById('btn-apply-custom').disabled = false;
+
+        const hint = document.getElementById('custom-model-hint');
+        hint.innerHTML = '<b>' + modelCategoryLabels[cat] + ':</b> ' + defaults.hint;
+        hint.style.display = 'block';
 
         showAIStatus('Model loaded!', 100);
         setTimeout(hideAIStatus, 1500);
@@ -1673,17 +1687,18 @@ async function loadCustomModelFile(file) {
         console.error('Failed to load model:', err);
         showAIStatus('Error: ' + err.message, 0);
         setTimeout(hideAIStatus, 3000);
-        customModel = { session: null, fileName: null, inputName: null, outputName: null };
+        customModel = { session: null, fileName: null, inputName: null, outputName: null, category: customModel.category };
     } finally {
         setAIButtonsDisabled(false);
     }
 }
 
 function clearCustomModel() {
-    customModel = { session: null, fileName: null, inputName: null, outputName: null };
+    customModel = { session: null, fileName: null, inputName: null, outputName: null, category: customModel.category };
     document.getElementById('custom-model-info').style.display = 'none';
     document.getElementById('custom-mode-group').style.display = 'none';
     document.getElementById('custom-intensity-group').style.display = 'none';
+    document.getElementById('custom-model-hint').style.display = 'none';
     document.getElementById('btn-apply-custom').style.display = 'none';
     document.getElementById('btn-apply-custom').disabled = true;
     document.getElementById('custom-model-input').value = '';
@@ -3211,6 +3226,14 @@ document.getElementById('btn-ai-remove-bg').addEventListener('click', aiRemoveBa
 document.getElementById('btn-ai-upscale-2x').addEventListener('click', aiUpscale);
 document.getElementById('btn-ai-enhance').addEventListener('click', aiEnhance);
 document.getElementById('btn-ai-denoise').addEventListener('click', aiDenoise);
+
+document.querySelectorAll('[data-model-cat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-model-cat]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        customModel.category = btn.dataset.modelCat;
+    });
+});
 
 document.getElementById('btn-load-model').addEventListener('click', () => {
     document.getElementById('custom-model-input').click();
