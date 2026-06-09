@@ -1185,6 +1185,29 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text);
 }
 
+.inpaint-canvas-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #0c1424;
+    cursor: crosshair;
+}
+
+.inpaint-canvas-wrap canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#inpaint-overlay {
+    z-index: 1;
+}
+
 /* History Bar */
 .history-bar {
     display: flex;
