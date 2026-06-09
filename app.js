@@ -1631,6 +1631,143 @@ const modelCategoryLabels = {
     other: 'Other'
 };
 
+let inpaintState = {
+    drawing: false,
+    mode: 'paint',
+    brushSize: 20,
+    maskData: null,
+    lastX: 0,
+    lastY: 0
+};
+
+function initInpaintCanvas() {
+    const wrap = document.getElementById('inpaint-canvas-wrap');
+    const canvas = document.getElementById('inpaint-canvas');
+    const overlay = document.getElementById('inpaint-overlay');
+    if (!wrap || !canvas || !overlay || !state.currentImage) return;
+
+    const srcW = state.currentImage.width;
+    const srcH = state.currentImage.height;
+    canvas.width = srcW;
+    canvas.height = srcH;
+    overlay.width = srcW;
+    overlay.height = srcH;
+
+    const ctx2d = canvas.getContext('2d');
+    ctx2d.putImageData(state.currentImage, 0, 0);
+
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, srcW, srcH);
+    inpaintState.maskData = octx.createImageData(srcW, srcH);
+}
+
+function paintInpaintAt(x, y) {
+    const overlay = document.getElementById('inpaint-overlay');
+    if (!overlay || !inpaintState.maskData) return;
+    const octx = overlay.getContext('2d');
+    const w = overlay.width;
+    const h = overlay.height;
+    const r = Math.round(inpaintState.brushSize / 2);
+    const ix = Math.round(x);
+    const iy = Math.round(y);
+
+    const md = inpaintState.maskData.data;
+    for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+            const px = ix + dx;
+            const py = iy + dy;
+            if (px < 0 || px >= w || py < 0 || py >= h) continue;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > r) continue;
+            const alpha = inpaintState.mode === 'paint'
+                ? Math.round((1 - dist / r) * 200)
+                : 0;
+            const idx = (py * w + px) * 4;
+            md[idx] = 233;
+            md[idx + 1] = 69;
+            md[idx + 2] = 96;
+            md[idx + 3] = alpha;
+        }
+    }
+    octx.putImageData(inpaintState.maskData, 0, 0);
+}
+
+function getInpaintCoords(e) {
+    const overlay = document.getElementById('inpaint-overlay');
+    if (!overlay) return { x: 0, y: 0 };
+    const rect = overlay.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left) * (overlay.width / rect.width),
+        y: (e.clientY - rect.top) * (overlay.height / rect.height)
+    };
+}
+
+function getInpaintMaskTensor(targetSize) {
+    const overlay = document.getElementById('inpaint-overlay');
+    if (!overlay || !inpaintState.maskData) return null;
+
+    const srcW = overlay.width;
+    const srcH = overlay.height;
+    const md = inpaintState.maskData.data;
+    const hasContent = md.some((v, i) => i % 4 === 3 && v > 10);
+    if (!hasContent) return null;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = srcW;
+    tempCanvas.height = srcH;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(inpaintState.maskData, 0, 0);
+
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = targetSize;
+    maskCanvas.height = targetSize;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.drawImage(tempCanvas, 0, 0, targetSize, targetSize);
+    const maskImgData = maskCtx.getImageData(0, 0, targetSize, targetSize);
+
+    const float32 = new Float32Array(1 * 1 * targetSize * targetSize);
+    for (let i = 0; i < targetSize * targetSize; i++) {
+        float32[i] = maskImgData.data[i * 4 + 3] / 255;
+    }
+    return new Float32Array([1, 1, targetSize, targetSize]).length ? float32 : null;
+}
+
+function getInpaintMaskAsTensor(targetSize) {
+    const overlay = document.getElementById('inpaint-overlay');
+    if (!overlay || !inpaintState.maskData) return null;
+
+    const srcW = overlay.width;
+    const srcH = overlay.height;
+    const md = inpaintState.maskData.data;
+    const hasContent = md.some((v, i) => i % 4 === 3 && v > 10);
+    if (!hasContent) return null;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = srcW;
+    tempCanvas.height = srcH;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(inpaintState.maskData, 0, 0);
+
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = targetSize;
+    maskCanvas.height = targetSize;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.drawImage(tempCanvas, 0, 0, targetSize, targetSize);
+    const maskImgData = maskCtx.getImageData(0, 0, targetSize, targetSize);
+
+    const float32 = new Float32Array(1 * 1 * targetSize * targetSize);
+    for (let i = 0; i < targetSize * targetSize; i++) {
+        float32[i] = maskImgData.data[i * 4 + 3] / 255;
+    }
+    return float32;
+}
+
+function showInpaintSection(show) {
+    const sec = document.getElementById('inpaint-section');
+    if (sec) sec.style.display = show ? 'block' : 'none';
+    if (show && state.currentImage) initInpaintCanvas();
+}
+
 async function loadCustomModelFile(file) {
     if (!file) return;
     setAIButtonsDisabled(true);
@@ -1702,6 +1839,7 @@ function clearCustomModel() {
     document.getElementById('btn-apply-custom').style.display = 'none';
     document.getElementById('btn-apply-custom').disabled = true;
     document.getElementById('custom-model-input').value = '';
+    showInpaintSection(false);
 }
 
 function imageDataToTensor(imageData, targetSize) {
@@ -1811,6 +1949,14 @@ async function applyCustomModel() {
         const tensor = imageDataToTensor(src, targetSize);
         const feeds = {};
         feeds[customModel.inputName] = tensor;
+
+        if (customModel.category === 'inpaint' && customModel.session.inputNames.length >= 2) {
+            const maskTensor = getInpaintMaskAsTensor(targetSize);
+            if (maskTensor) {
+                const maskInputName = customModel.session.inputNames.find(n => n !== customModel.inputName) || customModel.session.inputNames[1];
+                feeds[maskInputName] = new ort.Tensor('float32', maskTensor, [1, 1, targetSize, targetSize]);
+            }
+        }
 
         showAIStatus('Running inference...', 60);
 
@@ -3232,6 +3378,7 @@ document.querySelectorAll('[data-model-cat]').forEach(btn => {
         document.querySelectorAll('[data-model-cat]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         customModel.category = btn.dataset.modelCat;
+        showInpaintSection(btn.dataset.modelCat === 'inpaint');
     });
 });
 
@@ -3243,6 +3390,54 @@ document.getElementById('custom-model-input').addEventListener('change', (e) => 
 });
 document.getElementById('btn-clear-model').addEventListener('click', clearCustomModel);
 document.getElementById('btn-apply-custom').addEventListener('click', applyCustomModel);
+
+// Inpaint canvas events
+document.getElementById('inpaint-brush-size').addEventListener('input', (e) => {
+    inpaintState.brushSize = parseInt(e.target.value);
+    document.getElementById('val-inpaint-brush').textContent = e.target.value;
+});
+document.getElementById('inpaint-paint-btn').addEventListener('click', () => {
+    inpaintState.mode = 'paint';
+    document.getElementById('inpaint-paint-btn').classList.add('active');
+    document.getElementById('inpaint-erase-btn').classList.remove('active');
+});
+document.getElementById('inpaint-erase-btn').addEventListener('click', () => {
+    inpaintState.mode = 'erase';
+    document.getElementById('inpaint-erase-btn').classList.add('active');
+    document.getElementById('inpaint-paint-btn').classList.remove('active');
+});
+document.getElementById('btn-clear-inpaint-mask').addEventListener('click', () => {
+    const overlay = document.getElementById('inpaint-overlay');
+    if (overlay) {
+        overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+        inpaintState.maskData = null;
+    }
+});
+
+document.getElementById('inpaint-overlay').addEventListener('mousedown', (e) => {
+    inpaintState.drawing = true;
+    const p = getInpaintCoords(e);
+    inpaintState.lastX = p.x;
+    inpaintState.lastY = p.y;
+    paintInpaintAt(p.x, p.y);
+});
+document.getElementById('inpaint-overlay').addEventListener('mousemove', (e) => {
+    if (!inpaintState.drawing) return;
+    const p = getInpaintCoords(e);
+    const dx = p.x - inpaintState.lastX;
+    const dy = p.y - inpaintState.lastY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const step = Math.max(1, inpaintState.brushSize / 4);
+    const steps = Math.ceil(dist / step);
+    for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        paintInpaintAt(inpaintState.lastX + dx * t, inpaintState.lastY + dy * t);
+    }
+    inpaintState.lastX = p.x;
+    inpaintState.lastY = p.y;
+});
+document.getElementById('inpaint-overlay').addEventListener('mouseup', () => { inpaintState.drawing = false; });
+document.getElementById('inpaint-overlay').addEventListener('mouseleave', () => { inpaintState.drawing = false; });
 document.getElementById('custom-intensity').addEventListener('input', (e) => {
     document.getElementById('val-custom-intensity').textContent = e.target.value;
 });
