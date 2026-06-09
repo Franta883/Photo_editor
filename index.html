@@ -1,3 +1,25 @@
+C:\photo-editor
+Now update the README's Custom Model section:
+
+Let me verify the final state:
+
+Done. The Custom Model section is now organized with 6 categories:
+
+Category	Icon	Default Blend	Default Intensity	Best For
+Enhance	✨	Overlay	100%	Denoise, sharpen, color-grade
+Inpaint	🖌	Replace	100%	Fill missing areas
+Segment	🎭	Mask	100%	Generate alpha masks
+Style	🎨	Overlay	80%	Artistic style transfer
+Super-Res	🔍	Replace	100%	High-quality upscale
+Other	⚙	Overlay	100%	Manual control
+What changes when you pick a category:
+
+Blend mode auto-selects (e.g. Segment → "Mask", Inpaint → "Replace")
+Intensity auto-sets (e.g. Style → 80% to preserve original detail)
+Category badge appears next to the loaded model name
+Hint text explains recommended settings for that category
+The category is selected before loading the model, so it's ready when the model loads. Re-zip and publish.
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -253,18 +275,52 @@
                         </button>
                     </div>
                     <h3 style="margin-top:20px">Custom Model</h3>
-                    <p class="ai-info">Upload your own ONNX model (image-to-image)</p>
+                    <p class="ai-info">Upload your own ONNX model and pick a category so settings auto-configure.</p>
                     <div class="ai-tools">
                         <input type="file" id="custom-model-input" accept=".onnx,.bin,.pt,.pth" hidden>
-                        <button class="btn btn-secondary btn-full" id="btn-load-model">
+
+                        <div class="model-category-select" id="model-category-select">
+                            <label class="model-cat-label">Model Category</label>
+                            <div class="model-cat-grid">
+                                <button class="model-cat-btn active" data-model-cat="enhance" title="Upscale, denoise, sharpen, enhance">
+                                    <span class="cat-icon">✨</span>
+                                    <span>Enhance</span>
+                                </button>
+                                <button class="model-cat-btn" data-model-cat="inpaint" title="Inpainting / outpainting — fill missing areas">
+                                    <span class="cat-icon">🖌</span>
+                                    <span>Inpaint</span>
+                                </button>
+                                <button class="model-cat-btn" data-model-cat="segment" title="Segmentation — generate masks">
+                                    <span class="cat-icon">🎭</span>
+                                    <span>Segment</span>
+                                </button>
+                                <button class="model-cat-btn" data-model-cat="style" title="Style transfer — artistic effects">
+                                    <span class="cat-icon">🎨</span>
+                                    <span>Style</span>
+                                </button>
+                                <button class="model-cat-btn" data-model-cat="superres" title="Super Resolution — high-quality upscale">
+                                    <span class="cat-icon">🔍</span>
+                                    <span>Super-Res</span>
+                                </button>
+                                <button class="model-cat-btn" data-model-cat="other" title="Other / custom — full manual control">
+                                    <span class="cat-icon">⚙</span>
+                                    <span>Other</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-secondary btn-full" id="btn-load-model" style="margin-top:10px">
                             <span class="ai-icon">📁</span> Load Model File
                         </button>
+
                         <div id="custom-model-info" class="custom-model-info" style="display:none">
                             <span id="custom-model-name">No model loaded</span>
+                            <span id="custom-model-badge" class="model-cat-badge"></span>
                             <button class="btn-icon" id="btn-clear-model" title="Remove model">✕</button>
                         </div>
+
                         <div class="slider-group" id="custom-mode-group" style="display:none">
-                            <label>Mode</label>
+                            <label>Blend Mode</label>
                             <select id="custom-mode-select" class="mode-select">
                                 <option value="overlay">Overlay (blend)</option>
                                 <option value="replace">Replace image</option>
@@ -277,6 +333,9 @@
                             <label>Intensity <span id="val-custom-intensity">100</span>%</label>
                             <input type="range" id="custom-intensity" min="0" max="100" value="100">
                         </div>
+
+                        <div id="custom-model-hint" class="custom-model-hint" style="display:none"></div>
+
                         <button class="btn btn-ai btn-full" id="btn-apply-custom" style="display:none" disabled>
                             <span class="ai-icon">🎨</span> Apply Custom Model
                         </button>
