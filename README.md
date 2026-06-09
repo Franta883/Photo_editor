@@ -2,10 +2,7 @@
 <img width="1858" height="817" alt="Snímek obrazovky 2026-06-06 190416" src="https://github.com/user-attachments/assets/33ebbe7b-e229-41dc-8244-de48fb778785" />
 <img width="1828" height="877" alt="Snímek obrazovky 2026-06-06 190406" src="https://github.com/user-attachments/assets/b40379c6-da7d-43c7-97a5-089156ee3c36" />
 # Local Lens
-
 A browser-based photo editor with AI tools, professional color correction, lens correction, layers, drawing, and batch processing. Runs entirely client-side — your photos never leave your machine.
-
----
 
 ## Features
 
@@ -115,8 +112,7 @@ A 100% **optional** mode for short videos. The standard real-time export is reco
    - **Export Frames as ZIP (PNG)** — a folder of timestamped PNGs
    - **Export Frames as Video** — a WebM assembled from the pre-rendered frames
 
-**Why use it?**
-Lets you apply slow or expensive per-frame operations (e.g. AI upscale, AI denoise, complex filters) to every single frame before re-encoding. The standard export can't do that because it has to keep up with real-time playback.
+**Why use it?** Lets you apply slow or expensive per-frame operations (e.g. AI upscale, AI denoise, complex filters) to every single frame before re-encoding. The standard export can't do that because it has to keep up with real-time playback.
 
 **Limitations — please read before using**
 - **Best for clips under ~6 seconds.** RAM usage scales with `width × height × 4 bytes × frame count`.
@@ -194,7 +190,6 @@ Just open `index.html` in a modern browser, or deploy the folder to any static h
 python -m http.server 8000
 # then open http://localhost:8000
 ```
-
 
 ---
 
