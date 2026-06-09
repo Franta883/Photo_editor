@@ -357,7 +357,17 @@
                     <div class="crop-actions" style="margin-top:12px">
                         <button class="btn btn-secondary btn-full" id="btn-clear-mask">Clear Mask</button>
                     </div>
+
+                    <h4 style="margin-top:14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Sharpen (Local)</h4>
+                    <div class="slider-group">
+                        <label>Amount <span id="val-local-sharpen">50</span>%</label>
+                        <input type="range" id="local-sharpen-amount" min="10" max="200" value="50">
+                    </div>
                     <div class="crop-actions">
+                        <button class="btn btn-primary btn-full" id="btn-local-sharpen">Sharpen Masked Area</button>
+                    </div>
+
+                    <div class="crop-actions" style="margin-top:10px">
                         <button class="btn btn-primary btn-full" id="btn-apply-local">Apply to Masked Area</button>
                     </div>
                     <p class="ai-info" style="margin-top:8px">Or just use any AI tool above - it will respect the mask automatically.</p>
