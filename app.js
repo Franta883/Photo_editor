@@ -1,3 +1,23 @@
+C:\photo-editor
+Fix 2: Batch download race condition
+
+Fix 3: updateVideoUI reassignment — let me check current state:
+
+Fix 3 is already wrapped in try/catch — and since the file is loaded as <script type="module">, function declarations create mutable bindings, so it works fine. No change needed.
+
+Fix 4: rotateImageFine() mask destruction
+
+Fix 5: TDZ — move maskCanvas/maskCtx declarations to top of file
+
+All 5 fixed:
+
+applyCrop() variable shadowing — renamed inner vars to cropSx/cropSy/cropSw/cropSh (lines 1279–1284)
+downloadBatchIndividual() race condition — wrapped revokeObjectURL in setTimeout(..., 1000)
+updateVideoUI reassignment — already wrapped in try/catch; works fine in module mode (function declarations are mutable in ESM)
+rotateImageFine() mask destruction — changed fillRect(#000) → clearRect() so the mask stays transparent
+loadImage() TDZ — moved let maskCanvas/maskCtx to line 60 (top of file, with the other globals)
+Re-zip and publish.
+
 const state = {
     originalImage: null,
     currentImage: null,
@@ -57,6 +77,8 @@ const state = {
 
 const canvas = document.getElementById('main-canvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
+let maskCanvas = null;
+let maskCtx = null;
 const curvesCanvas = document.getElementById('curves-canvas');
 const curvesCtx = curvesCanvas.getContext('2d');
 
@@ -1276,12 +1298,12 @@ function applyCrop() {
         newMask.width = croppedData.width;
         newMask.height = croppedData.height;
         const newCtx = newMask.getContext('2d');
-        const sx = Math.max(0, Math.round(sx));
-        const sy = Math.max(0, Math.round(sy));
-        const sw = Math.min(Math.round(sw), oldMask.width - sx);
-        const sh = Math.min(Math.round(sh), oldMask.height - sy);
-        if (sw > 0 && sh > 0) {
-            newCtx.drawImage(oldMask, sx, sy, sw, sh, 0, 0, croppedData.width, croppedData.height);
+        const cropSx = Math.max(0, Math.round(sx));
+        const cropSy = Math.max(0, Math.round(sy));
+        const cropSw = Math.min(Math.round(sw), oldMask.width - cropSx);
+        const cropSh = Math.min(Math.round(sh), oldMask.height - cropSy);
+        if (cropSw > 0 && cropSh > 0) {
+            newCtx.drawImage(oldMask, cropSx, cropSy, cropSw, cropSh, 0, 0, croppedData.width, croppedData.height);
         }
         maskCanvas = newMask;
         maskCtx = newMask.getContext('2d');
@@ -1842,8 +1864,6 @@ async function applyCustomModel() {
 }
 
 // Local Mask - paint a region to apply edits to
-let maskCanvas = null;
-let maskCtx = null;
 let lastMaskPoint = null;
 
 function initLocalMask() {
@@ -2251,8 +2271,7 @@ function rotateImageFine(angleDegrees) {
         maskCanvas.width = newW;
         maskCanvas.height = newH;
         maskCtx = maskCanvas.getContext('2d');
-        maskCtx.fillStyle = '#000';
-        maskCtx.fillRect(0, 0, newW, newH);
+        maskCtx.clearRect(0, 0, newW, newH);
         maskCtx.translate(newW / 2, newH / 2);
         maskCtx.rotate(angleRad);
         maskCtx.drawImage(oldMask, -w / 2, -h / 2);
@@ -2732,7 +2751,7 @@ function downloadBatchIndividual() {
             a.href = url;
             a.download = r.name;
             a.click();
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }, i * 200);
     });
 }
@@ -3423,6 +3442,21 @@ document.querySelectorAll('[data-brush-mode]').forEach(btn => {
     });
 });
 document.getElementById('btn-clear-mask').addEventListener('click', clearLocalMask);
+document.getElementById('local-sharpen-amount').addEventListener('input', (e) => {
+    document.getElementById('val-local-sharpen').textContent = e.target.value;
+});
+
+document.getElementById('btn-local-sharpen').addEventListener('click', () => {
+    if (!hasActiveMask() || !state.currentImage) return;
+    const amount = parseInt(document.getElementById('local-sharpen-amount').value) / 100;
+    saveHistory();
+    const copy = new ImageData(new Uint8ClampedArray(state.currentImage.data), state.currentImage.width, state.currentImage.height);
+    applySharpen(copy, amount);
+    state.currentImage = applyMaskToResult(copy);
+    renderCanvas();
+    renderMaskOverlay();
+});
+
 document.getElementById('btn-apply-local').addEventListener('click', () => {
     if (!hasActiveMask() || !state.currentImage) return;
     if (confirm('Apply current image as the result for masked area? This will re-render with current adjustments.')) {
