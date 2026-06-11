@@ -1614,12 +1614,12 @@ let customModel = {
 };
 
 const modelCategoryDefaults = {
-    enhance: { mode: 'overlay', intensity: 100, hint: 'Overlay blend works well for most enhancement models (denoise, sharpen, color-grade). Try "Replace" for upscale models.' },
-    inpaint: { mode: 'replace', intensity: 100, hint: 'Inpainting models replace pixel data directly. Use "Replace" for clean fills, or "Overlay" to blend with the original.' },
-    segment: { mode: 'mask', intensity: 100, hint: 'Segmentation models output a mask. "Apply as alpha mask" is the default — use it to create selections for further editing.' },
-    style: { mode: 'overlay', intensity: 80, hint: 'Style transfer works best with Overlay or Screen blend. Lower intensity to keep some of the original detail.' },
-    superres: { mode: 'replace', intensity: 100, hint: 'Super-resolution models replace the image at higher quality. Use "Replace" for full output, or lower intensity to blend.' },
-    other: { mode: 'overlay', intensity: 100, hint: 'No auto-configuration. Pick the blend mode and intensity that work best for your model.' }
+    enhance: { mode: 'overlay', intensity: 100, hint: 'Overlay blend works well for most enhancement models. If the model expects raw 0–255 input (like Real-ESRGAN), switch Input Normalization to "None" or "0–1".' },
+    inpaint: { mode: 'replace', intensity: 100, hint: 'Inpainting models expect 0–1 normalized input. Paint the mask in the canvas below, then click Apply. If the model has 2+ inputs, the mask is auto-routed to the second input.' },
+    segment: { mode: 'mask', intensity: 100, hint: 'Segmentation models usually expect ImageNet normalization. Output is a mask — use "Apply as alpha mask" to create selections.' },
+    style: { mode: 'overlay', intensity: 80, hint: 'Style transfer works best with Overlay blend. Lower intensity to keep original detail. Switch normalization if the model expects 0–1 input.' },
+    superres: { mode: 'replace', intensity: 100, hint: 'Super-resolution models usually expect 0–1 or raw 0–255 input — NOT ImageNet normalization. Try "0–1" or "None" in Input Normalization.' },
+    other: { mode: 'overlay', intensity: 100, hint: 'No auto-configuration. You must pick the correct Input Normalization for your model. Check the model\'s training code to see if it uses ImageNet mean/std, 0–1, or raw pixel values.' }
 };
 
 const modelCategoryLabels = {
@@ -1661,9 +1661,17 @@ function initInpaintCanvas() {
     inpaintState.maskData = octx.createImageData(srcW, srcH);
 }
 
+function ensureInpaintCanvas() {
+    if (!inpaintState.maskData && state.currentImage) {
+        initInpaintCanvas();
+    }
+}
+
 function paintInpaintAt(x, y) {
     const overlay = document.getElementById('inpaint-overlay');
-    if (!overlay || !inpaintState.maskData) return;
+    if (!overlay) return;
+    ensureInpaintCanvas();
+    if (!inpaintState.maskData) return;
     const octx = overlay.getContext('2d');
     const w = overlay.width;
     const h = overlay.height;
@@ -1715,8 +1723,7 @@ function getInpaintMaskTensor(targetSize) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = srcW;
     tempCanvas.height = srcH;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.putImageData(inpaintState.maskData, 0, 0);
+    tempCanvas.getContext('2d').putImageData(inpaintState.maskData, 0, 0);
 
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = targetSize;
@@ -1729,7 +1736,7 @@ function getInpaintMaskTensor(targetSize) {
     for (let i = 0; i < targetSize * targetSize; i++) {
         float32[i] = maskImgData.data[i * 4 + 3] / 255;
     }
-    return new Float32Array([1, 1, targetSize, targetSize]).length ? float32 : null;
+    return float32;
 }
 
 function getInpaintMaskAsTensor(targetSize) {
@@ -1745,20 +1752,21 @@ function getInpaintMaskAsTensor(targetSize) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = srcW;
     tempCanvas.height = srcH;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.putImageData(inpaintState.maskData, 0, 0);
+    tempCanvas.getContext('2d').putImageData(inpaintState.maskData, 0, 0);
 
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = targetSize;
     maskCanvas.height = targetSize;
     const maskCtx = maskCanvas.getContext('2d');
     maskCtx.drawImage(tempCanvas, 0, 0, targetSize, targetSize);
+
     const maskImgData = maskCtx.getImageData(0, 0, targetSize, targetSize);
 
     const float32 = new Float32Array(1 * 1 * targetSize * targetSize);
     for (let i = 0; i < targetSize * targetSize; i++) {
         float32[i] = maskImgData.data[i * 4 + 3] / 255;
     }
+
     return float32;
 }
 
@@ -1795,8 +1803,14 @@ async function loadCustomModelFile(file) {
         customModel.fileName = file.name;
         customModel.inputName = session.inputNames[0];
         customModel.outputName = session.outputNames[0];
+        customModel.inputCount = session.inputNames.length;
+        customModel.outputCount = session.outputNames.length;
+        customModel.inputNames = session.inputNames;
+        customModel.outputNames = session.outputNames;
 
-        document.getElementById('custom-model-name').textContent = file.name;
+        const inputInfo = session.inputNames.join(', ');
+        const outputInfo = session.outputNames.join(', ');
+        document.getElementById('custom-model-name').textContent = file.name + '\nInputs: ' + inputInfo + ' → Outputs: ' + outputInfo;
         document.getElementById('custom-model-info').style.display = 'flex';
 
         const cat = customModel.category;
@@ -1810,6 +1824,9 @@ async function loadCustomModelFile(file) {
         document.getElementById('val-custom-intensity').textContent = defaults.intensity;
 
         document.getElementById('custom-mode-group').style.display = 'block';
+        document.getElementById('custom-norm-group').style.display = 'block';
+        document.getElementById('custom-out-layout-group').style.display = 'block';
+        document.getElementById('custom-out-range-group').style.display = 'block';
         document.getElementById('custom-intensity-group').style.display = 'block';
         document.getElementById('btn-apply-custom').style.display = 'block';
         document.getElementById('btn-apply-custom').disabled = false;
@@ -1834,6 +1851,9 @@ function clearCustomModel() {
     customModel = { session: null, fileName: null, inputName: null, outputName: null, category: customModel.category };
     document.getElementById('custom-model-info').style.display = 'none';
     document.getElementById('custom-mode-group').style.display = 'none';
+    document.getElementById('custom-norm-group').style.display = 'none';
+    document.getElementById('custom-out-layout-group').style.display = 'none';
+    document.getElementById('custom-out-range-group').style.display = 'none';
     document.getElementById('custom-intensity-group').style.display = 'none';
     document.getElementById('custom-model-hint').style.display = 'none';
     document.getElementById('btn-apply-custom').style.display = 'none';
@@ -1842,47 +1862,168 @@ function clearCustomModel() {
     showInpaintSection(false);
 }
 
-function imageDataToTensor(imageData, targetSize) {
+function imageDataToTensor(imageData, targetSize, modelMeta) {
     const w = targetSize || imageData.width;
     const h = targetSize || imageData.height;
-    const float32Data = new Float32Array(1 * 3 * h * w);
-    const mean = [0.485, 0.456, 0.406];
-    const std = [0.229, 0.224, 0.225];
+
+    const srcCanvas = document.createElement('canvas');
+    srcCanvas.width = imageData.width;
+    srcCanvas.height = imageData.height;
+    srcCanvas.getContext('2d').putImageData(imageData, 0, 0);
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = w;
     tempCanvas.height = h;
     const tempCtx = tempCanvas.getContext('2d');
-
-    const srcCanvas = document.createElement('canvas');
-    srcCanvas.width = imageData.width;
-    srcCanvas.height = imageData.height;
-    const srcCtx = srcCanvas.getContext('2d');
-    srcCtx.putImageData(imageData, 0, 0);
-
     tempCtx.drawImage(srcCanvas, 0, 0, w, h);
-    const resizedData = tempCtx.getImageData(0, 0, w, h).data;
+    const px = tempCtx.getImageData(0, 0, w, h).data;
 
-    for (let i = 0, j = 0; i < resizedData.length; i += 4, j += 3) {
-        float32Data[j] = (resizedData[i] / 255 - mean[0]) / std[0];
-        float32Data[j + 1] = (resizedData[i + 1] / 255 - mean[1]) / std[1];
-        float32Data[j + 2] = (resizedData[i + 2] / 255 - mean[2]) / std[2];
+    const inputMeta = modelMeta || {};
+    const layout = inputMeta.layout || 'NCHW';
+    const dataType = inputMeta.dataType || 'float32';
+    const normalize = inputMeta.normalize !== undefined ? inputMeta.normalize : 'imagenet';
+
+    const planeSize = w * h;
+    let tensorData;
+    if (dataType === 'float32') {
+        if (normalize === '0-1') {
+            if (layout === 'NHWC') {
+                tensorData = new Float32Array(planeSize * 3);
+                for (let i = 0, j = 0; i < px.length; i += 4, j += 3) {
+                    tensorData[j] = px[i] / 255;
+                    tensorData[j + 1] = px[i + 1] / 255;
+                    tensorData[j + 2] = px[i + 2] / 255;
+                }
+            } else {
+                tensorData = new Float32Array(3 * planeSize);
+                for (let p = 0; p < planeSize; p++) {
+                    tensorData[p] = px[p * 4] / 255;
+                    tensorData[planeSize + p] = px[p * 4 + 1] / 255;
+                    tensorData[planeSize * 2 + p] = px[p * 4 + 2] / 255;
+                }
+            }
+        } else if (normalize === 'none') {
+            if (layout === 'NHWC') {
+                tensorData = new Float32Array(planeSize * 3);
+                for (let i = 0, j = 0; i < px.length; i += 4, j += 3) {
+                    tensorData[j] = px[i];
+                    tensorData[j + 1] = px[i + 1];
+                    tensorData[j + 2] = px[i + 2];
+                }
+            } else {
+                tensorData = new Float32Array(3 * planeSize);
+                for (let p = 0; p < planeSize; p++) {
+                    tensorData[p] = px[p * 4];
+                    tensorData[planeSize + p] = px[p * 4 + 1];
+                    tensorData[planeSize * 2 + p] = px[p * 4 + 2];
+                }
+            }
+        } else {
+            const mean = [0.485, 0.456, 0.406];
+            const std = [0.229, 0.224, 0.225];
+            if (layout === 'NHWC') {
+                tensorData = new Float32Array(planeSize * 3);
+                for (let i = 0, j = 0; i < px.length; i += 4, j += 3) {
+                    tensorData[j] = (px[i] / 255 - mean[0]) / std[0];
+                    tensorData[j + 1] = (px[i + 1] / 255 - mean[1]) / std[1];
+                    tensorData[j + 2] = (px[i + 2] / 255 - mean[2]) / std[2];
+                }
+            } else {
+                tensorData = new Float32Array(3 * planeSize);
+                for (let p = 0; p < planeSize; p++) {
+                    tensorData[p] = (px[p * 4] / 255 - mean[0]) / std[0];
+                    tensorData[planeSize + p] = (px[p * 4 + 1] / 255 - mean[1]) / std[1];
+                    tensorData[planeSize * 2 + p] = (px[p * 4 + 2] / 255 - mean[2]) / std[2];
+                }
+            }
+        }
+    } else {
+        if (layout === 'NHWC') {
+            tensorData = new Uint8Array(planeSize * 3);
+            for (let i = 0, j = 0; i < px.length; i += 4, j += 3) {
+                tensorData[j] = px[i];
+                tensorData[j + 1] = px[i + 1];
+                tensorData[j + 2] = px[i + 2];
+            }
+        } else {
+            tensorData = new Uint8Array(3 * planeSize);
+            for (let p = 0; p < planeSize; p++) {
+                tensorData[p] = px[p * 4];
+                tensorData[planeSize + p] = px[p * 4 + 1];
+                tensorData[planeSize * 2 + p] = px[p * 4 + 2];
+            }
+        }
     }
 
-    return new ort.Tensor('float32', float32Data, [1, 3, h, w]);
+    const shape = layout === 'NHWC' ? [1, h, w, 3] : [1, 3, h, w];
+    return { tensorData, shape, dataType };
 }
 
 function tensorToImageData(tensor, origWidth, origHeight) {
     const data = tensor.data;
     const dims = tensor.dims;
-    let channels, modelH, modelW;
+    const outLayoutSel = document.getElementById('custom-out-layout-select');
+    const outRangeSel = document.getElementById('custom-out-range-select');
+    const userLayout = outLayoutSel ? outLayoutSel.value : 'auto';
+    const userRange = outRangeSel ? outRangeSel.value : 'auto';
 
-    if (dims.length === 4) {
-        [, channels, modelH, modelW] = dims;
+    let channels, modelH, modelW, layout;
+
+    if (userLayout !== 'auto') {
+        layout = userLayout;
+        if (dims.length === 4) {
+            if (layout === 'NHWC') {
+                [, modelH, modelW, channels] = dims;
+            } else {
+                [, channels, modelH, modelW] = dims;
+            }
+        } else if (dims.length === 3) {
+            if (layout === 'NHWC') {
+                [modelH, modelW, channels] = dims;
+            } else {
+                [channels, modelH, modelW] = dims;
+            }
+        } else {
+            throw new Error('Unexpected output shape: ' + dims);
+        }
+        if (channels > 100 || modelH * modelW * channels !== data.length) {
+            channels = 3;
+            const planeSize = Math.round(Math.sqrt(data.length / 3));
+            modelH = planeSize;
+            modelW = planeSize;
+        }
+    } else if (dims.length === 4) {
+        if (dims[3] === 3 || dims[3] === 1 || dims[3] === 4) {
+            layout = 'NHWC';
+            [, modelH, modelW, channels] = dims;
+        } else {
+            layout = 'NCHW';
+            [, channels, modelH, modelW] = dims;
+        }
     } else if (dims.length === 3) {
-        [channels, modelH, modelW] = dims;
+        if (dims[2] === 3 || dims[2] === 1 || dims[2] === 4) {
+            layout = 'NHWC';
+            [modelH, modelW, channels] = dims;
+        } else {
+            layout = 'NCHW';
+            [channels, modelH, modelW] = dims;
+        }
     } else {
         throw new Error('Unexpected output shape: ' + dims);
+    }
+
+    if (userLayout === 'auto' && layout === 'NCHW' && dims.length === 4 && dims[1] === 3 && data.length >= 6) {
+        const r0 = data[0], g0 = data[1], b0 = data[2];
+        const r1 = data[3], g1 = data[4], b1 = data[5];
+        const intra = Math.abs(r0 - g0) + Math.abs(g0 - b0) + Math.abs(r0 - b0);
+        const inter = Math.abs(r0 - r1) + Math.abs(g0 - g1) + Math.abs(b0 - b1);
+        if (intra < inter * 0.5) {
+            layout = 'NHWC';
+            channels = 3;
+            const planeSize = Math.round(Math.sqrt(data.length / 3));
+            modelH = planeSize;
+            modelW = planeSize;
+        }
     }
 
     const tempCanvas = document.createElement('canvas');
@@ -1892,32 +2033,77 @@ function tensorToImageData(tensor, origWidth, origHeight) {
     const tempData = tempCtx.createImageData(modelW, modelH);
 
     const isFloat = tensor.type === 'float32';
-    let min = Infinity, max = -Infinity;
-    if (isFloat) {
+    const planeSize = modelW * modelH;
+
+    let min = 0, max = 255;
+    if (userRange !== 'auto') {
+        const parts = userRange.split(',').map(Number);
+        min = parts[0];
+        max = parts[1];
+    } else if (isFloat) {
+        let lo = Infinity, hi = -Infinity;
         for (let i = 0; i < data.length; i++) {
-            if (data[i] < min) min = data[i];
-            if (data[i] > max) max = data[i];
+            if (data[i] < lo) lo = data[i];
+            if (data[i] > hi) hi = data[i];
+        }
+        if (hi <= 255 && lo >= 0) {
+            min = 0; max = 255;
+        } else if (hi <= 1 && lo >= -1) {
+            min = -1; max = 1;
+        } else if (hi <= 1 && lo >= 0) {
+            min = 0; max = 1;
+        } else {
+            min = lo; max = hi;
         }
     }
 
-    if (channels === 1) {
-        for (let i = 0; i < modelW * modelH; i++) {
-            let v = isFloat ? (data[i] - min) / (max - min || 1) * 255 : data[i];
-            v = clamp(Math.round(v));
-            const idx = i * 4;
-            tempData.data[idx] = v;
-            tempData.data[idx + 1] = v;
-            tempData.data[idx + 2] = v;
-            tempData.data[idx + 3] = 255;
+    console.log('[Custom Model] Output:', { dims, layout, channels, modelW, modelH, min, max, dataLen: data.length, type: tensor.type });
+
+    if (layout === 'NHWC') {
+        for (let i = 0; i < planeSize; i++) {
+            let r, g, b;
+            if (channels === 1) {
+                r = g = b = isFloat ? (data[i] - min) / (max - min || 1) * 255 : data[i];
+            } else if (channels === 3) {
+                r = isFloat ? (data[i * 3] - min) / (max - min || 1) * 255 : data[i * 3];
+                g = isFloat ? (data[i * 3 + 1] - min) / (max - min || 1) * 255 : data[i * 3 + 1];
+                b = isFloat ? (data[i * 3 + 2] - min) / (max - min || 1) * 255 : data[i * 3 + 2];
+            } else {
+                r = isFloat ? (data[i * 4] - min) / (max - min || 1) * 255 : data[i * 4];
+                g = isFloat ? (data[i * 4 + 1] - min) / (max - min || 1) * 255 : data[i * 4 + 1];
+                b = isFloat ? (data[i * 4 + 2] - min) / (max - min || 1) * 255 : data[i * 4 + 2];
+            }
+            tempData.data[i * 4] = clamp(Math.round(r));
+            tempData.data[i * 4 + 1] = clamp(Math.round(g));
+            tempData.data[i * 4 + 2] = clamp(Math.round(b));
+            tempData.data[i * 4 + 3] = 255;
         }
     } else {
-        const planeSize = modelW * modelH;
-        for (let i = 0; i < modelW * modelH; i++) {
-            for (let c = 0; c < 3; c++) {
-                let v = isFloat ? (data[c * planeSize + i] - min) / (max - min || 1) * 255 : data[c * planeSize + i];
-                tempData.data[i * 4 + c] = clamp(Math.round(v));
+        if (channels === 1) {
+            for (let i = 0; i < planeSize; i++) {
+                const v = isFloat ? (data[i] - min) / (max - min || 1) * 255 : data[i];
+                tempData.data[i * 4] = clamp(Math.round(v));
+                tempData.data[i * 4 + 1] = clamp(Math.round(v));
+                tempData.data[i * 4 + 2] = clamp(Math.round(v));
+                tempData.data[i * 4 + 3] = 255;
             }
-            tempData.data[i * 4 + 3] = 255;
+        } else if (channels === 3) {
+            for (let i = 0; i < planeSize; i++) {
+                const r = isFloat ? (data[i] - min) / (max - min || 1) * 255 : data[i];
+                const g = isFloat ? (data[planeSize + i] - min) / (max - min || 1) * 255 : data[planeSize + i];
+                const b = isFloat ? (data[planeSize * 2 + i] - min) / (max - min || 1) * 255 : data[planeSize * 2 + i];
+                tempData.data[i * 4] = clamp(Math.round(r));
+                tempData.data[i * 4 + 1] = clamp(Math.round(g));
+                tempData.data[i * 4 + 2] = clamp(Math.round(b));
+                tempData.data[i * 4 + 3] = 255;
+            }
+        } else {
+            for (let i = 0; i < planeSize; i++) {
+                tempData.data[i * 4] = clamp(isFloat ? (data[i] - min) / (max - min || 1) * 255 : data[i]);
+                tempData.data[i * 4 + 1] = clamp(isFloat ? (data[planeSize + i] - min) / (max - min || 1) * 255 : data[planeSize + i]);
+                tempData.data[i * 4 + 2] = clamp(isFloat ? (data[planeSize * 2 + i] - min) / (max - min || 1) * 255 : data[planeSize * 2 + i]);
+                tempData.data[i * 4 + 3] = 255;
+            }
         }
     }
     tempCtx.putImageData(tempData, 0, 0);
@@ -1929,6 +2115,46 @@ function tensorToImageData(tensor, origWidth, origHeight) {
     outCtx.drawImage(tempCanvas, 0, 0, origWidth, origHeight);
 
     return outCtx.getImageData(0, 0, origWidth, origHeight);
+}
+
+const categoryNormDefaults = {
+    enhance: 'imagenet',
+    inpaint: '0-1',
+    segment: 'imagenet',
+    style: 'imagenet',
+    superres: '0-1',
+    other: 'imagenet'
+};
+
+function inspectModelMeta(session) {
+    const meta = { layout: 'NCHW', normalize: 'imagenet', dataType: 'float32' };
+
+    const normSelect = document.getElementById('custom-norm-select');
+    const userNorm = normSelect ? normSelect.value : 'auto';
+    const cat = customModel.category || 'other';
+
+    if (userNorm === 'auto') {
+        meta.normalize = categoryNormDefaults[cat] || 'imagenet';
+    } else {
+        meta.normalize = userNorm;
+    }
+
+    try {
+        const inputNames = session.inputNames || [];
+        if (inputNames.length > 0) {
+            try {
+                const inputMeta = session._model?.graph?.input?.[0]?.type?.tensorType?.shape;
+                if (inputMeta) {
+                    const dims = inputMeta.dim || [];
+                    const lastDim = dims[dims.length - 1];
+                    if (lastDim === 3 || lastDim === 4) {
+                        meta.layout = 'NHWC';
+                    }
+                }
+            } catch (e) {}
+        }
+    } catch (e) {}
+    return meta;
 }
 
 async function applyCustomModel() {
@@ -1946,22 +2172,41 @@ async function applyCustomModel() {
         const targetSize = Math.min(src.width, src.height, 512);
         showAIStatus('Preprocessing image...', 30);
 
-        const tensor = imageDataToTensor(src, targetSize);
-        const feeds = {};
-        feeds[customModel.inputName] = tensor;
+        const modelMeta = inspectModelMeta(customModel.session);
+        const inputNames = customModel.session.inputNames;
+        const mainInputName = customModel.inputName || inputNames[0];
 
-        if (customModel.category === 'inpaint' && customModel.session.inputNames.length >= 2) {
+        const { tensorData, shape, dataType } = imageDataToTensor(src, targetSize, modelMeta);
+        const feeds = {};
+        feeds[mainInputName] = new ort.Tensor(dataType, tensorData, shape);
+
+        if (customModel.category === 'inpaint' && inputNames.length >= 2) {
             const maskTensor = getInpaintMaskAsTensor(targetSize);
             if (maskTensor) {
-                const maskInputName = customModel.session.inputNames.find(n => n !== customModel.inputName) || customModel.session.inputNames[1];
+                const maskKeywords = ['mask', 'mask_input', 'mask_in', 'm'];
+                let maskInputName = inputNames.find(n => n !== mainInputName);
+                const autoDetected = inputNames.find(n => maskKeywords.some(k => n.toLowerCase().includes(k)) && n !== mainInputName);
+                if (autoDetected) maskInputName = autoDetected;
                 feeds[maskInputName] = new ort.Tensor('float32', maskTensor, [1, 1, targetSize, targetSize]);
+
+                const ps = targetSize * targetSize;
+                for (let i = 0; i < ps; i++) {
+                    if (maskTensor[i] > 0.5) {
+                        tensorData[i] = 0;
+                        tensorData[ps + i] = 0;
+                        tensorData[ps * 2 + i] = 0;
+                    }
+                }
+                feeds[mainInputName] = new ort.Tensor(dataType, tensorData, shape);
             }
         }
 
         showAIStatus('Running inference...', 60);
 
         const outputMap = await customModel.session.run(feeds);
-        const outputTensor = outputMap[customModel.outputName];
+        const outputNames = customModel.session.outputNames;
+        const outName = customModel.outputName || outputNames[0];
+        const outputTensor = outputMap[outName] || outputMap[outputNames[0]];
 
         showAIStatus('Postprocessing...', 85);
 
@@ -3422,6 +3667,16 @@ document.getElementById('inpaint-overlay').addEventListener('mousedown', (e) => 
     paintInpaintAt(p.x, p.y);
 });
 document.getElementById('inpaint-overlay').addEventListener('mousemove', (e) => {
+    const cursor = document.getElementById('inpaint-cursor');
+    if (cursor) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const size = inpaintState.brushSize * (rect.width / e.currentTarget.width);
+        cursor.style.display = 'block';
+        cursor.style.left = (e.clientX - rect.left) + 'px';
+        cursor.style.top = (e.clientY - rect.top) + 'px';
+        cursor.style.width = size + 'px';
+        cursor.style.height = size + 'px';
+    }
     if (!inpaintState.drawing) return;
     const p = getInpaintCoords(e);
     const dx = p.x - inpaintState.lastX;
@@ -3437,7 +3692,11 @@ document.getElementById('inpaint-overlay').addEventListener('mousemove', (e) => 
     inpaintState.lastY = p.y;
 });
 document.getElementById('inpaint-overlay').addEventListener('mouseup', () => { inpaintState.drawing = false; });
-document.getElementById('inpaint-overlay').addEventListener('mouseleave', () => { inpaintState.drawing = false; });
+document.getElementById('inpaint-overlay').addEventListener('mouseleave', () => {
+    inpaintState.drawing = false;
+    const cursor = document.getElementById('inpaint-cursor');
+    if (cursor) cursor.style.display = 'none';
+});
 document.getElementById('custom-intensity').addEventListener('input', (e) => {
     document.getElementById('val-custom-intensity').textContent = e.target.value;
 });
