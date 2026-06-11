@@ -143,9 +143,24 @@ All audio routing goes through a Web Audio graph so the **real-time export uses 
 
 ### Custom Model
 - Load any image-to-image ONNX model from your disk
+- **6 categories** with auto-configured defaults:
+  - **Enhance** — upscale, denoise, sharpen (overlay blend, 100%, ImageNet norm)
+  - **Inpaint** — fill missing areas (replace blend, 100%, 0–1 norm)
+  - **Segment** — generate masks (mask mode, 100%, ImageNet norm)
+  - **Style** — artistic effects (overlay blend, 80%, ImageNet norm)
+  - **Super-Res** — high-quality upscale (replace blend, 100%, 0–1 norm)
+  - **Other** — full manual control
+- Category badge shows next to the loaded model name
+- Hint text explains recommended settings per category
+- **Input Normalization** selector — override the auto-detected normalization:
+  - **Auto** — picks based on category (ImageNet for enhance/segment/style, 0–1 for inpaint/superres)
+  - **ImageNet** — mean/std normalization (for models trained on ImageNet)
+  - **0–1** — divide by 255 (for models trained with pixel values in 0–1)
+  - **None** — raw 0–255 (for models that expect unnormalized input)
+- Model input/output names shown in the model info bar
+- **Inpainting mask canvas** — when Inpaint category is selected, paint directly in the AI panel to mark the area to remove/fill. The mask is fed to the model's second input automatically.
 - 5 blend modes: overlay, replace, mask, multiply, screen
 - Adjustable intensity slider
-- Useful for Stable-Diffusion-style checkpoints exported to ONNX
 
 ### Stable Diffusion
 - Enter a Hugging Face model ID that exposes the diffusers format
