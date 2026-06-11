@@ -1208,6 +1208,17 @@ input[type="range"]::-moz-range-thumb {
     z-index: 1;
 }
 
+.inpaint-cursor {
+    position: absolute;
+    border: 2px solid rgba(233, 69, 96, 0.8);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+    transform: translate(-50%, -50%);
+    display: none;
+    box-shadow: 0 0 4px rgba(233, 69, 96, 0.5);
+}
+
 /* History Bar */
 .history-bar {
     display: flex;
