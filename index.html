@@ -307,6 +307,32 @@
                                 <option value="screen">Screen blend</option>
                             </select>
                         </div>
+                        <div class="slider-group" id="custom-norm-group" style="display:none">
+                            <label>Input Normalization</label>
+                            <select id="custom-norm-select" class="mode-select">
+                                <option value="auto">Auto (detect from category)</option>
+                                <option value="imagenet">ImageNet (mean/std normalize)</option>
+                                <option value="0-1">0–1 (divide by 255)</option>
+                                <option value="none">None (raw 0–255)</option>
+                            </select>
+                        </div>
+                        <div class="slider-group" id="custom-out-layout-group" style="display:none">
+                            <label>Output Layout</label>
+                            <select id="custom-out-layout-select" class="mode-select">
+                                <option value="auto">Auto (detect from dims)</option>
+                                <option value="NCHW">NCHW (C×H×W — PyTorch)</option>
+                                <option value="NHWC">NHWC (H×W×C — TensorFlow)</option>
+                            </select>
+                        </div>
+                        <div class="slider-group" id="custom-out-range-group" style="display:none">
+                            <label>Output Range</label>
+                            <select id="custom-out-range-select" class="mode-select">
+                                <option value="auto">Auto (detect from values)</option>
+                                <option value="-1,1">-1 to +1</option>
+                                <option value="0,1">0 to 1</option>
+                                <option value="0,255">0 to 255</option>
+                            </select>
+                        </div>
                         <div class="slider-group" id="custom-intensity-group" style="display:none">
                             <label>Intensity <span id="val-custom-intensity">100</span>%</label>
                             <input type="range" id="custom-intensity" min="0" max="100" value="100">
@@ -321,6 +347,7 @@
                             <div class="inpaint-canvas-wrap" id="inpaint-canvas-wrap">
                                 <canvas id="inpaint-canvas"></canvas>
                                 <canvas id="inpaint-overlay"></canvas>
+                                <div class="inpaint-cursor" id="inpaint-cursor"></div>
                             </div>
                             <div class="slider-group" style="margin-top:6px">
                                 <label>Brush <span id="val-inpaint-brush">20</span>px</label>
